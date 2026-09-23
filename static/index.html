@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>BookCheck</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>📚 BookCheck</h1>
+    <p class="subtitle">Barcode oder Cover scannen, oder einfach suchen</p>
+  </header>
+
+  <main id="app">
+    <section class="search-bar">
+      <input id="searchInput" type="text" placeholder="Titel, Autor oder ISBN suchen..." />
+      <button id="searchBtn">Suchen</button>
+    </section>
+
+    <section class="scan-buttons">
+      <button id="barcodeBtn">📷 Barcode scannen</button>
+      <label class="file-btn">
+        🖼️ Cover scannen
+        <input id="coverInput" type="file" accept="image/*" capture="environment" hidden />
+      </label>
+    </section>
+
+    <div id="barcodeReader" class="barcode-reader" hidden></div>
+    <div id="ocrStatus" class="status-line" hidden></div>
+
+    <section id="resultsGrid" class="results-grid"></section>
+
+    <section id="detail" class="detail" hidden></section>
+  </main>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
