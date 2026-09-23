@@ -98,6 +98,7 @@ async def google_books_request(params: dict, url: str = GOOGLE_BOOKS_URL) -> dic
 async def config():
     return {
         "geminiConfigured": bool(GEMINI_API_KEY),
+        "googleBooksKeyConfigured": bool(GOOGLE_BOOKS_API_KEY),
     }
 
 
