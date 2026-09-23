@@ -246,29 +246,68 @@ async function stopBarcodeScanner() {
   barcodeBtn.textContent = "📷 Barcode scannen";
 }
 
+async function preprocessCoverImage(file) {
+  const bitmap = await createImageBitmap(file);
+  const maxDim = 1600;
+  const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
+  const width = Math.round(bitmap.width * scale);
+  const height = Math.round(bitmap.height * scale);
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(bitmap, 0, 0, width, height);
+
+  const imageData = ctx.getImageData(0, 0, width, height);
+  const data = imageData.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+    data[i] = data[i + 1] = data[i + 2] = gray;
+  }
+  ctx.putImageData(imageData, 0, 0);
+
+  return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.92));
+}
+
+function looksLikeWord(line) {
+  const letters = (line.match(/\p{L}/gu) || []).length;
+  return line.length >= 3 && letters / line.length >= 0.6;
+}
+
 coverInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
   showStatus(ocrStatus, "Text auf Cover wird erkannt...");
+  let worker;
   try {
-    const { data } = await Tesseract.recognize(file, "eng+deu");
+    const processed = await preprocessCoverImage(file);
+    worker = await Tesseract.createWorker("eng+deu");
+    await worker.setParameters({ tessedit_pageseg_mode: "11" }); // sparse text: einzelne Wörter statt Fließtext-Absätze
+    const { data } = await worker.recognize(processed);
+
     const rawText = (data.text || "").trim();
     const guess = rawText
       .split("\n")
       .map((l) => l.trim())
-      .filter((l) => l.length > 2)
+      .filter(looksLikeWord)
+      .sort((a, b) => b.length - a.length)
       .slice(0, 3)
       .join(" ");
+
     hideStatus(ocrStatus);
     if (guess) {
       searchInput.value = guess;
       showStatus(ocrStatus, `Erkannt: "${guess}" – Ergebnis prüfen und ggf. Suchfeld anpassen.`);
       doSearch(guess);
     } else {
-      showStatus(ocrStatus, "Kein Text auf dem Cover erkannt. Bitte manuell suchen.");
+      showStatus(ocrStatus, "Kein eindeutiger Text erkannt. Bitte Titel manuell eingeben oder näher/gerader fotografieren.");
     }
   } catch (err) {
+    console.error(err);
     showStatus(ocrStatus, "Texterkennung fehlgeschlagen.");
+  } finally {
+    if (worker) await worker.terminate();
   }
   coverInput.value = "";
 });
