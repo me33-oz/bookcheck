@@ -13,7 +13,12 @@ pip install -r requirements.txt
 Kopiere `.env.example` nach `.env` und trage deinen Key ein (optional, App läuft auch ohne):
 
 - `GEMINI_API_KEY` – für KI-Zusammenfassung/Tags/Pro-Contra (kostenloser Free-Tier: https://aistudio.google.com/apikey)
-- `GOOGLE_BOOKS_API_KEY` – optional, erhöht nur das Rate-Limit der Google Books API
+- `GOOGLE_BOOKS_API_KEY` – **dringend empfohlen**, sonst kommt schnell "Rate-Limit erreicht"
+  (v.a. bei gehosteten Apps mit geteilter IP wie Render). Kostenlos erstellen:
+  1. [console.cloud.google.com](https://console.cloud.google.com/) öffnen, ein Projekt anlegen (oder vorhandenes nutzen)
+  2. "APIs & Services" → "Library" → nach "Books API" suchen → aktivieren
+  3. "APIs & Services" → "Credentials" → "Create Credentials" → "API key"
+  4. Den Key kopieren und hier eintragen
 
 ## Starten
 
@@ -37,10 +42,14 @@ neu deployt:
    ```
 3. Auf [render.com](https://render.com) einloggen → "New +" → "Blueprint" → das GitHub-Repo auswählen
    (Render erkennt automatisch `render.yaml` aus diesem Projekt).
-4. Beim ersten Deploy nach `GEMINI_API_KEY` (und optional `GOOGLE_BOOKS_API_KEY`) fragen lassen und eintragen –
-   diese Werte bleiben in Render und landen nie im Git-Repo (siehe `.gitignore`).
-5. Render gibt dir eine HTTPS-URL wie `https://bookcheck.onrender.com` – die kannst du auf dem Handy öffnen
-   und über "Zum Home-Bildschirm hinzufügen" wie eine App ablegen.
+4. Beim ersten Deploy nach `GEMINI_API_KEY` und `GOOGLE_BOOKS_API_KEY` fragen lassen und eintragen –
+   diese Werte bleiben in Render und landen nie im Git-Repo (siehe `.gitignore`). Schon deployt und
+   Rate-Limit-Fehler? Nachträglich unter "Environment" im Render-Dashboard eintragen, Render deployt
+   dann automatisch neu.
+5. Render gibt dir eine HTTPS-URL wie `https://bookcheck.onrender.com` – die kannst du auf dem Handy öffnen.
+   Die App hat ein PWA-Manifest + Service Worker, Chrome/Android zeigt daher von selbst ein
+   "App installieren"-Banner an (oder Menü → "App installieren"); auf iPhone/Safari über
+   "Teilen" → "Zum Home-Bildschirm" hinzufügen.
 
 Jeder weitere `git push` aktualisiert die Live-Version automatisch – kein manuelles Redeploy nötig.
 Der kostenlose Render-Tarif schläft nach ca. 15 Minuten Inaktivität ein; der erste Aufruf danach

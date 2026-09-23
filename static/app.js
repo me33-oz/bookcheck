@@ -274,3 +274,9 @@ coverInput.addEventListener("change", async (e) => {
 });
 
 loadConfig();
+
+if ("serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch((e) => console.error("SW-Registrierung fehlgeschlagen", e));
+  });
+}
