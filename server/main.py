@@ -60,10 +60,12 @@ async def google_books_request(params: dict) -> dict:
             resp.raise_for_status()
             return resp.json()
     except httpx.HTTPStatusError as e:
+        logger.warning("Google Books API Fehler: HTTP %s - %s", e.response.status_code, e.response.text[:300])
         if e.response.status_code == 429:
             raise HTTPException(429, "Google Books API: Rate-Limit erreicht, bitte kurz warten.")
         raise HTTPException(502, "Google Books API ist nicht erreichbar.")
-    except httpx.RequestError:
+    except httpx.RequestError as e:
+        logger.warning("Google Books API nicht erreichbar: %s", type(e).__name__)
         raise HTTPException(502, "Google Books API ist nicht erreichbar.")
 
 
