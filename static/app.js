@@ -246,20 +246,23 @@ async function stopBarcodeScanner() {
   barcodeBtn.textContent = "📷 Barcode scannen";
 }
 
-async function preprocessCoverImage(file) {
+async function preprocessCoverImage(file, rotationDeg) {
   const bitmap = await createImageBitmap(file);
   const maxDim = 1600;
   const scale = Math.min(1, maxDim / Math.max(bitmap.width, bitmap.height));
   const width = Math.round(bitmap.width * scale);
   const height = Math.round(bitmap.height * scale);
+  const swapped = rotationDeg === 90 || rotationDeg === -90;
 
   const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  canvas.width = swapped ? height : width;
+  canvas.height = swapped ? width : height;
   const ctx = canvas.getContext("2d");
-  ctx.drawImage(bitmap, 0, 0, width, height);
+  ctx.translate(canvas.width / 2, canvas.height / 2);
+  ctx.rotate((rotationDeg * Math.PI) / 180);
+  ctx.drawImage(bitmap, -width / 2, -height / 2, width, height);
 
-  const imageData = ctx.getImageData(0, 0, width, height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
   const data = imageData.data;
   for (let i = 0; i < data.length; i += 4) {
     const gray = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
@@ -275,24 +278,54 @@ function looksLikeWord(line) {
   return line.length >= 3 && letters / line.length >= 0.6;
 }
 
+const MIN_LINE_CONFIDENCE = 60;
+
+function confidentLinesFromResult(data) {
+  const lines = [];
+  for (const block of data.blocks || []) {
+    for (const para of block.paragraphs || []) {
+      for (const line of para.lines || []) {
+        const text = (line.text || "").trim();
+        if (looksLikeWord(text) && (line.confidence ?? 0) >= MIN_LINE_CONFIDENCE) {
+          lines.push({ text, confidence: line.confidence });
+        }
+      }
+    }
+  }
+  return lines;
+}
+
 coverInput.addEventListener("change", async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  showStatus(ocrStatus, "Text auf Cover wird erkannt...");
+  showStatus(ocrStatus, "Text auf Cover wird erkannt (prüfe auch gedrehte Ausrichtungen)...");
   let worker;
   try {
-    const processed = await preprocessCoverImage(file);
     worker = await Tesseract.createWorker("eng+deu");
     await worker.setParameters({ tessedit_pageseg_mode: "11" }); // sparse text: einzelne Wörter statt Fließtext-Absätze
-    const { data } = await worker.recognize(processed);
 
-    const rawText = (data.text || "").trim();
-    const guess = rawText
-      .split("\n")
-      .map((l) => l.trim())
-      .filter(looksLikeWord)
-      .sort((a, b) => b.length - a.length)
-      .slice(0, 3)
+    // Manche Cover haben vertikal gedrehte Titel (z.B. am Buchrücken orientiert), daher
+    // zusätzlich beide 90°-Drehungen probieren. Ergebnisse aus allen Ausrichtungen werden
+    // gesammelt und nach Erkennungs-Konfidenz gefiltert, damit Datenmüll aus einer falschen
+    // Ausrichtung (typischerweise niedrige Konfidenz) nicht in die Suche einfließt.
+    const allLines = [];
+    for (const rotationDeg of [0, 90, -90]) {
+      const processed = await preprocessCoverImage(file, rotationDeg);
+      const { data } = await worker.recognize(processed);
+      allLines.push(...confidentLinesFromResult(data));
+    }
+
+    const byText = new Map();
+    for (const line of allLines) {
+      const key = line.text.toLowerCase();
+      if (!byText.has(key) || byText.get(key).confidence < line.confidence) {
+        byText.set(key, line);
+      }
+    }
+    const guess = [...byText.values()]
+      .sort((a, b) => b.confidence - a.confidence)
+      .slice(0, 4)
+      .map((l) => l.text)
       .join(" ");
 
     hideStatus(ocrStatus);
